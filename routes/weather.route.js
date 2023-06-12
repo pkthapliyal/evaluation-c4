@@ -10,8 +10,32 @@ const redis = require("redis");
 const { AssertionError } = require("assert");
 const weatherRoute = express.Router()
 
+require("winston-mongodb")
+const winston = require("winston");
+
 const client = redis.createClient();
 client.connect()
+
+const logger = winston.createLogger({
+    transports: [
+        new winston.transports.Console(),
+        new winston.transports.File({
+            level: "info",
+            filename: "infolog.log",
+            format: winston.format.combine(winston.format.timestamp(), winston.format.json())
+        }),
+        new winston.transports.MongoDB({
+            level: "error",
+            db: process.env.mongoURl,
+            options: { useUnifiedTopology: true },
+            collection: "logger",
+            format: winston.format.combine(winston.format.timestamp(), winston.format.json())
+        })
+    ],
+    format: winston.format.combine(winston.format.timestamp(), winston.format.json())
+})
+
+
 
 weatherRoute.get("/weather/:city", async (req, res) => {
     const city = req.params.city
@@ -31,7 +55,10 @@ weatherRoute.get("/weather/:city", async (req, res) => {
         res.send(data.data)
 
     } catch (error) {
+        logger.error(`${error.message}`)
+
         console.log(error.message)
+        res.send(error.message)
     }
 })
 
